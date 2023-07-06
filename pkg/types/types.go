@@ -427,3 +427,32 @@ type InstallPort struct {
 	Status     string `json:"status"`
 	CanAutofix bool   `json:"can_autofix"`
 }
+
+type SafeSearchSettings struct {
+	Enabled    bool `json:"enabled"`
+	Bing       bool `json:"bing,omitempty"`
+	Duckduckgo bool `json:"duckduckgo,omitempty"`
+	Google     bool `json:"google,omitempty"`
+	Pixabay    bool `json:"pixabay,omitempty"`
+	Yandex     bool `json:"yandex,omitempty"`
+	Youtube    bool `json:"youtube,omitempty"`
+}
+
+func (s *SafeSearchSettings) Equals(o *SafeSearchSettings) bool {
+	return s.Enabled == o.Enabled &&
+		s.Bing == o.Bing &&
+		s.Duckduckgo == o.Duckduckgo &&
+		s.Google == o.Google &&
+		s.Pixabay == o.Pixabay &&
+		s.Yandex == o.Yandex &&
+		s.Youtube == o.Youtube
+}
+
+type Profile struct {
+	Theme    string `json:"theme"`
+	Language string `json:"language"`
+}
+
+func (p *Profile) Equals(o *Profile) bool {
+	return p.Language == o.Language && p.Theme == o.Theme
+}

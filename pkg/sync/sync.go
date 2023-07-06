@@ -124,9 +124,14 @@ func (w *worker) sync() {
 		sl.With("error", err).Error("Error getting parental status")
 		return
 	}
-	o.safeSearch, err = oc.SafeSearch()
+	o.safeSearch, err = oc.SafeSearchSettings()
 	if err != nil {
-		sl.With("error", err).Error("Error getting safe search status")
+		sl.With("error", err).Error("Error getting safe search setting")
+		return
+	}
+	o.profile, err = oc.Profile()
+	if err != nil {
+		sl.With("error", err).Error("Error getting profile setting")
 		return
 	}
 	o.safeBrowsing, err = oc.SafeBrowsing()
@@ -414,10 +419,17 @@ func (w *worker) syncGeneralSettings(o *origin, rs *types.Status, replica client
 				return err
 			}
 		}
-		if rs, err := replica.SafeSearch(); err != nil {
+		if rs, err := replica.SafeSearchSettings(); err != nil {
 			return err
-		} else if o.safeSearch != rs {
-			if err = replica.ToggleSafeSearch(o.safeSearch); err != nil {
+		} else if !o.safeSearch.Equals(rs) {
+			if err = replica.SetSafeSearchSettings(o.safeSearch); err != nil {
+				return err
+			}
+		}
+		if rs, err := replica.Profile(); err != nil {
+			return err
+		} else if !o.profile.Equals(rs) {
+			if err = replica.SetProfile(o.profile); err != nil {
 				return err
 			}
 		}
@@ -536,6 +548,7 @@ type origin struct {
 	dnsConfig        *types.DNSConfig
 	dhcpServerConfig *types.DHCPServerConfig
 	parental         bool
-	safeSearch       bool
+	safeSearch       *types.SafeSearchSettings
+	profile          *types.Profile
 	safeBrowsing     bool
 }

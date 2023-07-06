@@ -97,8 +97,11 @@ type Client interface {
 	ToggleSafeBrowsing(enable bool) error
 	Parental() (bool, error)
 	ToggleParental(enable bool) error
-	SafeSearch() (bool, error)
-	ToggleSafeSearch(enable bool) error
+	SafeSearchSettings() (*types.SafeSearchSettings, error)
+	SetSafeSearchSettings(settings *types.SafeSearchSettings) error
+	Profile() (*types.Profile, error)
+	SetProfile(settings *types.Profile) error
+
 	Services() (types.Services, error)
 	SetServices(services types.Services) error
 	Clients() (*types.Clients, error)
@@ -183,6 +186,29 @@ func (cl *client) doPost(req *resty.Request, url string) error {
 	return nil
 }
 
+func (cl *client) doPut(req *resty.Request, url string) error {
+	rl := cl.log.With("method", "PUT", "path", url)
+	if cl.client.UserInfo != nil {
+		rl = rl.With("username", cl.client.UserInfo.Username)
+	}
+	b, _ := json.Marshal(req.Body)
+	rl.With("body", string(b)).Debug("do put")
+	resp, err := req.Put(url)
+	if err != nil {
+		rl.With("status", resp.StatusCode(), "body", string(resp.Body()), "error", err).Debug("error in do put")
+		return detailedError(resp, err)
+	}
+	rl.With(
+		"status", resp.StatusCode(),
+		"body", string(resp.Body()),
+		"content-type", contentType(resp),
+	).Debug("got response")
+	if resp.StatusCode() != http.StatusOK {
+		return detailedError(resp, nil)
+	}
+	return nil
+}
+
 func contentType(resp *resty.Response) string {
 	if ct, ok := resp.Header()["Content-Type"]; ok {
 		if len(ct) != 1 {
@@ -244,14 +270,6 @@ func (cl *client) Parental() (bool, error) {
 
 func (cl *client) ToggleParental(enable bool) error {
 	return cl.toggleBool("parental", enable)
-}
-
-func (cl *client) SafeSearch() (bool, error) {
-	return cl.toggleStatus("safesearch")
-}
-
-func (cl *client) ToggleSafeSearch(enable bool) error {
-	return cl.toggleBool("safesearch", enable)
 }
 
 func (cl *client) toggleStatus(mode string) (bool, error) {
@@ -412,6 +430,28 @@ func (cl *client) StatsConfig() (*types.IntervalConfig, error) {
 func (cl *client) SetStatsConfig(interval float64) error {
 	cl.log.With("interval", interval).Info("Set stats config")
 	return cl.doPost(cl.client.R().EnableTrace().SetBody(&types.IntervalConfig{Interval: interval}), "/stats_config")
+}
+
+func (cl *client) SafeSearchSettings() (*types.SafeSearchSettings, error) {
+	sss := &types.SafeSearchSettings{}
+	err := cl.doGet(cl.client.R().EnableTrace().SetResult(sss), "/safesearch/status")
+	return sss, err
+}
+
+func (cl *client) SetSafeSearchSettings(settings *types.SafeSearchSettings) error {
+	cl.log.With("enabled", settings.Enabled).Info("Set safesearch settings")
+	return cl.doPut(cl.client.R().EnableTrace().SetBody(settings), "/safesearch/settings")
+}
+
+func (cl *client) Profile() (*types.Profile, error) {
+	p := &types.Profile{}
+	err := cl.doGet(cl.client.R().EnableTrace().SetResult(p), "/profile")
+	return p, err
+}
+
+func (cl *client) SetProfile(profile *types.Profile) error {
+	cl.log.With("language", profile.Language, "theme", profile.Theme).Info("Set profile")
+	return cl.doPut(cl.client.R().EnableTrace().SetBody(profile), "/profile/update")
 }
 
 func (cl *client) Setup() error {
