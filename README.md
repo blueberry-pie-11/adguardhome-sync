@@ -71,8 +71,51 @@ export REPLICA1_PASSWORD=password
 adguardhome-sync run
 
 # run as daemon
-adguardhome-sync run --cron "*/10 * * * *"
+adguardhome-sync run --cron "0 */2 * * *"
 ```
+
+### Run as Linux Service via Systemd
+
+> Verified on Ubuntu Linux 24.04
+
+Assume you have downloaded the the `adguardhome-sync` binary to `/opt/adguardhome-sync`. 
+
+Create systemd service file `/opt/adguardhome-sync/adguardhome-sync.service`:
+
+```
+[Unit]
+Description = AdGuardHome Sync
+After = network.target
+
+[Service]
+ExecStart = /opt/adguardhome-sync/adguardhome-sync --config /opt/adguardhome-sync/adguardhome-sync.yaml run
+
+[Install]
+WantedBy = multi-user.target
+
+```
+
+Create a configuration file `/opt/adguardhome-sync/adguardhome-sync.yaml`, please follow [Config file](#config-file-1) section below for details.
+
+Install and enable service:
+
+```bash
+sudo cp /opt/adguardhome-sync/adguardhome-sync.service /etc/systemd/system/
+
+sudo systemctl enable adguardhome-sync.service
+
+sudo systemctl start adguardhome-sync.service
+
+```
+
+Then you can check the status:
+
+```bash
+sudo systemctl status adguardhome-sync.service
+
+```
+
+If web UI has been enabled in configuration (default port is 8080), can also check the status via `http://<server-IP>:8080`
 
 ## Run Windows
 
@@ -103,7 +146,7 @@ set FEATURES_DHCP_STATICLEASES=false
 adguardhome-sync run
 
 # run as daemon
-adguardhome-sync run --cron "*/10 * * * *"
+adguardhome-sync run --cron "0 */2 * * *"
 ```
 
 ## docker cli
@@ -164,28 +207,34 @@ services:
       # REPLICA2_AUTO_SETUP: true # if true, AdGuardHome is automatically initialized.
       # REPLICA2_INTERFACE_NAME: 'ens18' # use custom dhcp interface name
       # REPLICA2_DHCP_SERVER_ENABLED: true/false (optional) enables/disables the dhcp server on the replica
-      CRON: "*/10 * * * *" # run every 10 minutes
-      RUNONSTART: true
+      CRON: "0 */2 * * *" # run every 10 minutes
+      RUN_ON_START: "true"
       # CONTINUE_ON_ERROR: false # If enabled, the synchronisation task will not fail on single errors, but will log the errors and continue
 
       # Configure the sync API server, disabled if api port is 0
       API_PORT: 8080
-      # API_DARK_MODE: true
+      # API_DARK_MODE: "true"
       # API_USERNAME: admin
       # API_PASSWORD: secret
+      # the directory of the provided tls certs
+      # API_TLS_CERT_DIR: /path/to/certs
+      # the name of the cert file (default: tls.crt)
+      # API_TLS_CERT_NAME: foo.crt
+      # the name of the key file (default: tls.key)
+      # API_TLS_KEY_NAME: bar.key
 
       # Configure sync features; by default all features are enabled.
-      # FEATURES_GENERAL_SETTINGS: true
-      # FEATURES_QUERY_LOG_CONFIG: true
-      # FEATURES_STATS_CONFIG: true
-      # FEATURES_CLIENT_SETTINGS: true
-      # FEATURES_SERVICES: true
-      # FEATURES_FILTERS: true
-      # FEATURES_DHCP_SERVER_CONFIG: true
-      # FEATURES_DHCP_STATIC_LEASES: true
-      # FEATURES_DNS_SERVER_CONFIG: true
-      # FEATURES_DNS_ACCESS_LISTS: true
-      # FEATURES_DNS_REWRITES: true
+      # FEATURES_GENERAL_SETTINGS: "true"
+      # FEATURES_QUERY_LOG_CONFIG: "true"
+      # FEATURES_STATS_CONFIG: "true"
+      # FEATURES_CLIENT_SETTINGS: "true"
+      # FEATURES_SERVICES: "true"
+      # FEATURES_FILTERS: "true"
+      # FEATURES_DHCP_SERVER_CONFIG: "true"
+      # FEATURES_DHCP_STATIC_LEASES: "true"
+      # FEATURES_DNS_SERVER_CONFIG: "true"
+      # FEATURES_DNS_ACCESS_LISTS: "true"
+      # FEATURES_DNS_REWRITES: "true"
     ports:
       - 8080:8080
     restart: unless-stopped
@@ -197,7 +246,7 @@ location: $HOME/.adguardhome-sync.yaml
 
 ```yaml
 # cron expression to run in daemon mode. (default; "" = runs only once)
-cron: "*/10 * * * *"
+cron: "0 */2 * * *"
 
 # runs the synchronisation on startup
 runOnStart: true
@@ -243,6 +292,15 @@ api:
     # enabled: true
     # scrapeInterval: 30s 
     # queryLogLimit: 10000
+
+  # enable tls for the api server
+  # tls:
+  #   # the directory of the provided tls certs
+  #   certDir: /path/to/certs
+  #   # the name of the cert file (default: tls.crt)
+  #   certName: foo.crt
+  #   # the name of the key file (default: tls.key)
+  #   keyName: bar.key
 
 # Configure sync features; by default all features are enabled.
 features:

@@ -50,12 +50,22 @@ func (w *worker) handleLogs(c *gin.Context) {
 	c.Data(http.StatusOK, "text/plain", []byte(strings.Join(log.Logs(), "")))
 }
 
+func (w *worker) handleClearLogs(c *gin.Context) {
+	log.Clear()
+	c.Status(http.StatusOK)
+}
+
 func (w *worker) handleStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, w.status())
 }
 
 func (w *worker) listenAndServe() {
-	l.With("port", w.cfg.API.Port).Info("Starting API server")
+	sl := l.With("port", w.cfg.API.Port)
+	if w.cfg.API.TLS.Enabled() {
+		c, k := w.cfg.API.TLS.Certs()
+		sl = sl.With("tls-cert", c).With("tls-key", k)
+	}
+	sl.Info("Starting API server")
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -75,6 +85,7 @@ func (w *worker) listenAndServe() {
 	r.SetHTMLTemplate(template.Must(template.New("index.html").Parse(string(index))))
 	r.POST("/api/v1/sync", w.handleSync)
 	r.GET("/api/v1/logs", w.handleLogs)
+	r.POST("/api/v1/clear-logs", w.handleClearLogs)
 	r.GET("/api/v1/status", w.handleStatus)
 	r.GET("/favicon.ico", w.handleFavicon)
 	r.GET("/", w.handleRoot)
@@ -85,7 +96,14 @@ func (w *worker) listenAndServe() {
 	}
 
 	go func() {
-		if err := httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		var err error
+		if w.cfg.API.TLS.Enabled() {
+			err = httpServer.ListenAndServeTLS(w.cfg.API.TLS.Certs())
+		} else {
+			err = httpServer.ListenAndServe()
+		}
+
+		if !errors.Is(err, http.ErrServerClosed) {
 			l.With("error", err).Fatalf("HTTP server ListenAndServe")
 		}
 	}()

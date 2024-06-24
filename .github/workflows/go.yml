@@ -19,9 +19,9 @@ jobs:
           go-version-file: "go.mod"
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          skip-pkg-cache: true
+          skip-cache: true
 
   test:
     name: test
@@ -58,7 +58,4 @@ jobs:
           go-version-file: "go.mod"
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          version: latest
-          args: --skip-publish --snapshot --rm-dist
+        run: make test-release

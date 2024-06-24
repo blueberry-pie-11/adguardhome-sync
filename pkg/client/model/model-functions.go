@@ -167,10 +167,39 @@ func (cl *Client) Sort() {
 	}
 }
 
+// PrepareDiff timezone BlockedServicesSchedule might differ if all other fields are empty,
+// so we skip it in diff
+func (cl *Client) PrepareDiff() *string {
+	var tz *string
+	bss := cl.BlockedServicesSchedule
+	if bss != nil && bss.Mon == nil && bss.Tue == nil && bss.Wed == nil &&
+		bss.Thu == nil && bss.Fri == nil && bss.Sat == nil && bss.Sun == nil {
+
+		tz = cl.BlockedServicesSchedule.TimeZone
+		cl.BlockedServicesSchedule.TimeZone = nil
+	}
+	return tz
+}
+
+// AfterDiff reset after diff
+func (cl *Client) AfterDiff(tz *string) {
+	if cl.BlockedServicesSchedule != nil {
+		cl.BlockedServicesSchedule.TimeZone = tz
+	}
+}
+
 // Equals Clients equal check
 func (cl *Client) Equals(o *Client) bool {
 	cl.Sort()
 	o.Sort()
+
+	bssCl := cl.PrepareDiff()
+	bssO := o.PrepareDiff()
+
+	defer func() {
+		cl.AfterDiff(bssCl)
+		o.AfterDiff(bssO)
+	}()
 
 	return utils.JsonEquals(cl, o)
 }
@@ -410,6 +439,7 @@ func ArrayString(a *[]string) string {
 
 func (c *DNSConfig) Sanitize(l *zap.SugaredLogger) {
 	// disable UsePrivatePtrResolvers if not configured
+	// https://github.com/AdguardTeam/AdGuardHome/issues/6820
 	if c.UsePrivatePtrResolvers != nil && *c.UsePrivatePtrResolvers &&
 		(c.LocalPtrUpstreams == nil || len(*c.LocalPtrUpstreams) == 0) {
 		l.Warn("disabling replica 'Use private reverse DNS resolvers' as no 'Private reverse DNS servers' are configured on origin")
