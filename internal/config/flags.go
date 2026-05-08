@@ -174,7 +174,24 @@ func (fr *flagReader) readFeatureFlags() error {
 		return err
 	}
 	if err := fr.setBoolFlag(FlagFeatureFilters, func(_ *types.Config, value bool) {
-		fr.cfg.Features.Filters = value
+		fr.cfg.Features.Filters.Blacklist = value
+		fr.cfg.Features.Filters.Whitelist = value
+		fr.cfg.Features.Filters.UserRules = value
+	}); err != nil {
+		return err
+	}
+	if err := fr.setBoolFlag(FlagFeatureFiltersBlacklist, func(_ *types.Config, value bool) {
+		fr.cfg.Features.Filters.Blacklist = value
+	}); err != nil {
+		return err
+	}
+	if err := fr.setBoolFlag(FlagFeatureFiltersWhitelist, func(_ *types.Config, value bool) {
+		fr.cfg.Features.Filters.Whitelist = value
+	}); err != nil {
+		return err
+	}
+	if err := fr.setBoolFlag(FlagFeatureFiltersUserRules, func(_ *types.Config, value bool) {
+		fr.cfg.Features.Filters.UserRules = value
 	}); err != nil {
 		return err
 	}

@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/json"
+
 	"go.uber.org/zap"
 )
 
@@ -20,25 +22,90 @@ func NewFeatures(enabled bool) Features {
 		StatsConfig:     enabled,
 		ClientSettings:  enabled,
 		Services:        enabled,
-		Filters:         enabled,
-		Theme:           enabled,
-		TLSConfig:       false,
+		Filters: FiltersType{
+			Blacklist:   enabled,
+			Whitelist:   enabled,
+			UserRules:   enabled,
+		},
+		Theme:     enabled,
+		TLSConfig: false,
 	}
 }
 
 // Features feature flags.
 type Features struct {
-	DNS              DNS  `json:"dns"              yaml:"dns"`
-	DHCP             DHCP `json:"dhcp"             yaml:"dhcp"`
-	GeneralSettings  bool `json:"generalSettings"  yaml:"generalSettings"  documentation:"Sync general settings"                                                env:"FEATURES_GENERAL_SETTINGS"`
-	ProtectionStatus bool `json:"protectionStatus" yaml:"protectionStatus" documentation:"Sync the protection status (disabled if generalSettings is disabled)" env:"FEATURES_PROTECTION_STATUS"`
-	QueryLogConfig   bool `json:"queryLogConfig"   yaml:"queryLogConfig"   documentation:"Sync query log config"                                                env:"FEATURES_QUERY_LOG_CONFIG"`
-	StatsConfig      bool `json:"statsConfig"      yaml:"statsConfig"      documentation:"Sync stats config"                                                    env:"FEATURES_STATS_CONFIG"`
-	ClientSettings   bool `json:"clientSettings"   yaml:"clientSettings"   documentation:"Sync client settings"                                                 env:"FEATURES_CLIENT_SETTINGS"`
-	Services         bool `json:"services"         yaml:"services"         documentation:"Sync services"                                                        env:"FEATURES_SERVICES"`
-	Filters          bool `json:"filters"          yaml:"filters"          documentation:"Sync filters"                                                         env:"FEATURES_FILTERS"`
-	Theme            bool `json:"theme"            yaml:"theme"            documentation:"Sync the web UI theme"                                                env:"FEATURES_THEME"`
-	TLSConfig        bool `json:"tlsConfig"        yaml:"tlsConfig"        documentation:"Sync the TLS config"                                                  env:"FEATURES_TLS_CONFIG"`
+	DNS              DNS         `json:"dns"              yaml:"dns"`
+	DHCP             DHCP        `json:"dhcp"             yaml:"dhcp"`
+	GeneralSettings  bool        `json:"generalSettings"  yaml:"generalSettings"  documentation:"Sync general settings"                                                env:"FEATURES_GENERAL_SETTINGS"`
+	ProtectionStatus bool        `json:"protectionStatus" yaml:"protectionStatus" documentation:"Sync the protection status (disabled if generalSettings is disabled)" env:"FEATURES_PROTECTION_STATUS"`
+	QueryLogConfig   bool        `json:"queryLogConfig"   yaml:"queryLogConfig"   documentation:"Sync query log config"                                                env:"FEATURES_QUERY_LOG_CONFIG"`
+	StatsConfig      bool        `json:"statsConfig"      yaml:"statsConfig"      documentation:"Sync stats config"                                                    env:"FEATURES_STATS_CONFIG"`
+	ClientSettings   bool        `json:"clientSettings"   yaml:"clientSettings"   documentation:"Sync client settings"                                                 env:"FEATURES_CLIENT_SETTINGS"`
+	Services         bool        `json:"services"         yaml:"services"         documentation:"Sync services"                                                        env:"FEATURES_SERVICES"`
+	Filters          FiltersType `json:"filters"          yaml:"filters"          documentation:"Sync filters (use sub-fields for granular control)"                   env:"FEATURES_FILTERS"`
+	Theme            bool        `json:"theme"            yaml:"theme"            documentation:"Sync the web UI theme"                                                env:"FEATURES_THEME"`
+	TLSConfig        bool        `json:"tlsConfig"        yaml:"tlsConfig"        documentation:"Sync the TLS config"                                                  env:"FEATURES_TLS_CONFIG"`
+}
+
+// FiltersType features.
+type FiltersType struct {
+	Blacklist        bool `documentation:"Sync blacklist filters" env:"FEATURES_FILTERS_BLACKLIST"    json:"blacklist" yaml:"blacklist"`
+	Whitelist        bool `documentation:"Sync whitelist filters" env:"FEATURES_FILTERS_WHITELIST"    json:"whitelist" yaml:"whitelist"`
+	UserRules        bool `documentation:"Sync user rules"        env:"FEATURES_FILTERS_USER_RULES"   json:"userRules" yaml:"userRules"`
+}
+
+// UnmarshalYAML implements custom unmarshalling for FiltersType.
+func (f *FiltersType) UnmarshalYAML(unmarshal func(any) error) error {
+	var b bool
+	if err := unmarshal(&b); err == nil {
+		f.Blacklist = b
+		f.Whitelist = b
+		f.UserRules = b
+		return nil
+	}
+
+	type Alias FiltersType
+	var a Alias
+	if err := unmarshal(&a); err != nil {
+		return err
+	}
+	*f = FiltersType(a)
+	return nil
+}
+
+// UnmarshalJSON implements custom unmarshalling for FiltersType.
+func (f *FiltersType) UnmarshalJSON(b []byte) error {
+	var v bool
+	if err := json.Unmarshal(b, &v); err == nil {
+		f.Blacklist = v
+		f.Whitelist = v
+		f.UserRules = v
+		return nil
+	}
+
+	type Alias FiltersType
+	var a Alias
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+	*f = FiltersType(a)
+	return nil
+}
+
+// UnmarshalText implements custom unmarshalling for env vars.
+func (f *FiltersType) UnmarshalText(text []byte) error {
+	if string(text) == "true" {
+		f.Blacklist = true
+		f.Whitelist = true
+		f.UserRules = true
+		return nil
+	} else if string(text) == "false" {
+		f.Blacklist = false
+		f.Whitelist = false
+		f.UserRules = false
+		return nil
+	}
+	return json.Unmarshal(text, f)
 }
 
 // DHCP features.
@@ -95,8 +162,14 @@ func (f *Features) collectDisabled() []string {
 	if !f.Services {
 		features = append(features, "BlockedServices")
 	}
-	if !f.Filters {
-		features = append(features, "Filters")
+	if !f.Filters.Blacklist {
+		features = append(features, "Filters.Blacklist")
+	}
+	if !f.Filters.Whitelist {
+		features = append(features, "Filters.Whitelist")
+	}
+	if !f.Filters.UserRules {
+		features = append(features, "Filters.UserRules")
 	}
 	if !f.TLSConfig {
 		features = append(features, "TLSConfig")
